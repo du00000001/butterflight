@@ -65,6 +65,9 @@
 #include "drivers/accgyro_legacy/accgyro_mma845x.h"
 #endif
 
+#ifdef USE_ACC_IMUF9001
+#include "drivers/accgyro/accgyro_imuf9001.h"
+#endif //USE_ACC_IMUF9001
 #include "drivers/bus_spi.h"
 
 #include "fc/config.h"
@@ -284,6 +287,15 @@ retry:
         FALLTHROUGH;
 #endif
 
+#ifdef USE_ACC_IMUF9001
+    case ACC_IMUF9001:
+        if (imufSpiAccDetect(dev)) {
+            accHardware = ACC_IMUF9001;
+            break;
+        }
+        FALLTHROUGH;
+#endif
+
 #ifdef USE_ACC_SPI_ICM20689
     case ACC_ICM20689:
         if (icm20689SpiAccDetect(dev)) {
@@ -363,7 +375,7 @@ bool accInit(uint32_t gyroSamplingInverval)
     acc.dev.acc_1G = 256; // set default
     acc.dev.initFn(&acc.dev); // driver initialisation
     // set the acc sampling interval according to the gyro sampling interval
-    switch (gyroSamplingInverval) {  // Switch statement kept in place to change acc sampling interval in the future
+        switch (gyroSamplingInverval) {  // Switch statement kept in place to change acc sampling interval in the future
     case 500:
     case 375:
     case 250:
@@ -383,9 +395,11 @@ bool accInit(uint32_t gyroSamplingInverval)
             biquadFilterInitLPF(&accFilter[axis], accLpfCutHz, acc.accSamplingInterval);
         }
     }
+    #ifndef USE_ACC_IMUF9001
     if (accelerometerConfig()->acc_align != ALIGN_DEFAULT) {
         acc.dev.accAlign = accelerometerConfig()->acc_align;
     }
+    #endif //USE_ACC_IMUF9001
     return true;
 }
 
@@ -505,6 +519,7 @@ void accUpdate(timeUs_t currentTimeUs, rollAndPitchTrims_t *rollAndPitchTrims)
 {
     UNUSED(currentTimeUs);
 
+    #ifndef USE_ACC_IMUF9001
     if (!acc.dev.readFn(&acc.dev)) {
         return;
     }
@@ -514,6 +529,8 @@ void accUpdate(timeUs_t currentTimeUs, rollAndPitchTrims_t *rollAndPitchTrims)
         DEBUG_SET(DEBUG_ACCELEROMETER, axis, acc.dev.ADCRaw[axis]);
         acc.accADC[axis] = acc.dev.ADCRaw[axis];
     }
+    alignSensors(acc.accADC, acc.dev.accAlign);
+    #endif
 
     if (accLpfCutHz) {
         for (int axis = 0; axis < XYZ_AXIS_COUNT; axis++) {
@@ -533,10 +550,18 @@ void accUpdate(timeUs_t currentTimeUs, rollAndPitchTrims_t *rollAndPitchTrims)
 
     applyAccelerationTrims(accelerationTrims);
 
+    #ifdef USE_GYRO_IMUF9001
+    if (gyroConfig()->imuf_mode != GTBCM_GYRO_ACC_QUAT_FILTER_F)
+    {
+    #endif
     ++accumulatedMeasurementCount;
     for (int axis = 0; axis < XYZ_AXIS_COUNT; axis++) {
         accumulatedMeasurements[axis] += acc.accADC[axis];
     }
+    #ifdef USE_GYRO_IMUF9001
+    }
+    acc.isAccelUpdatedAtLeastOnce = true;
+    #endif
 }
 
 bool accGetAccumulationAverage(float *accumulationAverage)
