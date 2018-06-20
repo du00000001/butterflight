@@ -197,6 +197,7 @@ typedef enum {
     ICM_20649_SPI,
     ICM_20689_SPI,
     BMI_160_SPI,
+    IMUF_9001_SPI,
 } mpuSensor_e;
 
 typedef enum {
@@ -217,3 +218,8 @@ void mpuDetect(struct gyroDev_s *gyro);
 
 struct accDev_s;
 bool mpuAccRead(struct accDev_s *acc);
+
+#ifdef USE_DMA_SPI_DEVICE
+extern bool mpuGyroDmaSpiReadStart(struct gyroDev_s *gyro);
+extern void mpuGyroDmaSpiReadFinish(struct gyroDev_s *gyro);
+#endif

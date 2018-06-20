@@ -16,6 +16,7 @@
  */
 
 #include <stdbool.h>
+#include <string.h>
 #include <stdint.h>
 #include <math.h>
 
@@ -46,16 +47,28 @@
 
 #include "sensors/battery.h"
 
+#ifdef USE_GYRO_IMUF9001
+    volatile bool isSetpointNew;
+#endif
+
 typedef float (applyRatesFn)(const int axis, float rcCommandf, const float rcCommandfAbs);
 
-static float setpointRate[3], rcDeflection[3], rcDeflectionAbs[3];
+static float rcDeflection[3], rcDeflectionAbs[3];
+static volatile float setpointRate[3];
+static volatile uint32_t setpointRateInt[3];
 static float throttlePIDAttenuation;
 static bool reverseMotors = false;
 static applyRatesFn *applyRates;
+volatile bool isRXDataNew;
 
 float getSetpointRate(int axis)
 {
     return setpointRate[axis];
+}
+
+uint32_t getSetpointRateInt(int axis) 
+{
+    return setpointRateInt[axis];
 }
 
 float getRcDeflection(int axis)
@@ -130,6 +143,7 @@ static void calculateSetpointRate(int axis)
     DEBUG_SET(DEBUG_ANGLERATE, axis, angleRate);
 
     setpointRate[axis] = constrainf(angleRate, -SETPOINT_RATE_LIMIT, SETPOINT_RATE_LIMIT); // Rate limit protection (deg/sec)
+    memcpy((uint32_t*)&setpointRateInt[axis], (uint32_t*)&setpointRate[axis], sizeof(float));
 }
 
 static void scaleRcCommandToFpvCamAngle(void)
@@ -198,19 +212,19 @@ void processRcCommand(void)
     if (rxConfig()->rcInterpolation) {
          // Set RC refresh rate for sampling and channels to filter
         switch (rxConfig()->rcInterpolation) {
-        case RC_SMOOTHING_AUTO:
-            rxRefreshRate = currentRxRefreshRate + 1000; // Add slight overhead to prevent ramps
-            break;
-        case RC_SMOOTHING_MANUAL:
-            rxRefreshRate = 1000 * rxConfig()->rcInterpolationInterval;
-            break;
-        case RC_SMOOTHING_OFF:
-        case RC_SMOOTHING_DEFAULT:
-        default:
-            rxRefreshRate = rxGetRefreshRate();
-        }
+                case RC_SMOOTHING_AUTO:
+                    rxRefreshRate = currentRxRefreshRate + 1000; // Add slight overhead to prevent ramps
+                    break;
+                case RC_SMOOTHING_MANUAL:
+                    rxRefreshRate = 1000 * rxConfig()->rcInterpolationInterval;
+                    break;
+                case RC_SMOOTHING_OFF:
+                case RC_SMOOTHING_DEFAULT:
+                default:
+                    rxRefreshRate = rxGetRefreshRate();
+            }
 
-        if (isRXDataNew && rxRefreshRate > 0) {
+           if (isRXDataNew && rxRefreshRate > 0) {
             rcInterpolationStepCount = rxRefreshRate / targetPidLooptime;
 
             for (int channel = ROLL; channel < interpolationChannels; channel++) {
@@ -251,6 +265,9 @@ void processRcCommand(void)
             calculateSetpointRate(axis);
         }
 
+        #ifdef USE_GYRO_IMUF9001
+        isSetpointNew = 1;
+        #endif
         if (debugMode == DEBUG_RC_INTERPOLATION) {
             debug[2] = rcInterpolationStepCount;
             debug[3] = setpointRate[0];
@@ -269,6 +286,7 @@ void processRcCommand(void)
 
 void updateRcCommands(void)
 {
+    isRXDataNew = true;
     // PITCH & ROLL only dynamic PID adjustment,  depending on throttle value
     int32_t prop;
     if (rcData[THROTTLE] < currentControlRateProfile->tpa_breakpoint) {

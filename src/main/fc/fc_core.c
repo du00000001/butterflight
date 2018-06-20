@@ -35,6 +35,7 @@
 #include "pg/pg.h"
 #include "pg/pg_ids.h"
 
+#include "drivers/dma_spi.h"
 #include "drivers/light_led.h"
 #include "drivers/sound_beeper.h"
 #include "drivers/system.h"
@@ -124,7 +125,6 @@ static bool flipOverAfterCrashMode = false;
 
 static uint32_t disarmAt;     // Time of automatic disarm when "Don't spin the motors when armed" is enabled and auto_disarm_delay is nonzero
 
-bool isRXDataNew;
 static int lastArmingDisabledReason = 0;
 
 #ifdef USE_RUNAWAY_TAKEOFF
@@ -569,7 +569,7 @@ bool processRx(timeUs_t currentTimeUs)
                 && (fabsf(axisPIDSum[FD_PITCH]) < RUNAWAY_TAKEOFF_DEACTIVATE_PIDSUM_LIMIT)
                 && (fabsf(axisPIDSum[FD_ROLL]) < RUNAWAY_TAKEOFF_DEACTIVATE_PIDSUM_LIMIT)
                 && (fabsf(axisPIDSum[FD_YAW]) < RUNAWAY_TAKEOFF_DEACTIVATE_PIDSUM_LIMIT)) {
-                
+
                 inStableFlight = true;
                 if (runawayTakeoffDeactivateUs == 0) {
                     runawayTakeoffDeactivateUs = currentTimeUs;
@@ -932,6 +932,10 @@ static void subTaskMotorUpdate(timeUs_t currentTimeUs)
 // Function for loop trigger
 void taskMainPidLoop(timeUs_t currentTimeUs)
 {
+
+#ifdef USE_DMA_SPI_DEVICE
+    dmaSpiDeviceDataReady = false;
+#endif
     static uint8_t pidUpdateCountdown = 0;
 
 #if defined(SIMULATOR_BUILD) && defined(SIMULATOR_GYROPID_SYNC)

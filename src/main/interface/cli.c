@@ -55,12 +55,16 @@ extern uint8_t __config_end;
 #include "config/feature.h"
 
 #include "drivers/accgyro/accgyro.h"
+#ifdef USE_GYRO_IMUF9001
+#include "drivers/accgyro/accgyro_imuf9001.h"
+#endif
 #include "drivers/adc.h"
 #include "drivers/buf_writer.h"
 #include "drivers/bus_spi.h"
 #include "drivers/compass/compass.h"
 #include "drivers/display.h"
 #include "drivers/dma.h"
+#include "drivers/dma_spi.h"
 #include "drivers/flash.h"
 #include "drivers/io.h"
 #include "drivers/io_impl.h"
@@ -3048,6 +3052,12 @@ static void cliStatus(char *cmdline)
             }
         }
     }
+#else 
+    #if defined(USE_GYRO_IMUF9001)
+    UNUSED(sensorHardwareNames);
+    UNUSED(sensorTypeNames);
+    cliPrintf(" | IMU-F Version: %lu", imufCurrentVersion);
+    #endif
 #endif /* USE_SENSOR_NAMES */
     cliPrintLinefeed();
 
@@ -3122,7 +3132,7 @@ static void cliTasks(char *cmdline)
             }
             const int maxLoad = taskInfo.maxExecutionTime == 0 ? 0 :(taskInfo.maxExecutionTime * taskFrequency + 5000) / 1000;
             const int averageLoad = taskInfo.averageExecutionTime == 0 ? 0 : (taskInfo.averageExecutionTime * taskFrequency + 5000) / 1000;
-            if (taskId != TASK_SERIAL) {
+           if (taskId != TASK_SERIAL) {
                 maxLoadSum += maxLoad;
                 averageLoadSum += averageLoad;
             }
@@ -3161,6 +3171,9 @@ static void cliVersion(char *cmdline)
         shortGitRevision,
         MSP_API_VERSION_STRING
     );
+#ifdef USE_GYRO_IMUF9001
+    cliPrintLinef("# IMU-F Version: %lu", imufCurrentVersion);
+#endif
 }
 
 #if defined(USE_RESOURCE_MGMT)
@@ -3684,6 +3697,14 @@ typedef struct {
 }
 #endif
 
+#ifdef USE_GYRO_IMUF9001
+static void cliReportImufErrors(char *cmdline);
+static void cliImufUpdate(char *cmdline);
+#endif
+#ifdef MSD_ADDRESS
+static void cliMsd(char *cmdline);
+#endif
+
 static void cliHelp(char *cmdline);
 
 // should be sorted a..z for bsearch()
@@ -3699,7 +3720,7 @@ const clicmd_t cmdTable[] = {
     CLI_COMMAND_DEF("color", "configure colors", NULL, cliColor),
 #endif
     CLI_COMMAND_DEF("defaults", "reset to defaults and reboot", "[nosave]", cliDefaults),
-    CLI_COMMAND_DEF("diff", "list configuration changes from default", "[master|profile|rates|all] {defaults}", cliDiff),
+    CLI_COMMAND_DEF("diff", "list configuration changes from default", "[master|profile|rates|all] {showdefaults}", cliDiff),
 #ifdef USE_DSHOT
     CLI_COMMAND_DEF("dshotprog", "program DShot ESC(s)", "<index> <command>+", cliDshotProg),
 #endif
@@ -3726,6 +3747,13 @@ const clicmd_t cmdTable[] = {
     CLI_COMMAND_DEF("get", "get variable value", "[name]", cliGet),
 #ifdef USE_GPS
     CLI_COMMAND_DEF("gpspassthrough", "passthrough gps to serial", NULL, cliGpsPassthrough),
+#endif
+#ifdef USE_GYRO_IMUF9001
+    CLI_COMMAND_DEF("reportimuferrors", "report imu-f comm errors", NULL, cliReportImufErrors),
+    CLI_COMMAND_DEF("imufupdate", "update imu-f's firmware", NULL, cliImufUpdate),
+#endif
+#ifdef MSD_ADDRESS
+    CLI_COMMAND_DEF("msd", "boot into USB drive mode to download log files", NULL, cliMsd),
 #endif
     CLI_COMMAND_DEF("help", NULL, NULL, cliHelp),
 #ifdef USE_LED_STRIP
@@ -3779,6 +3807,55 @@ const clicmd_t cmdTable[] = {
     CLI_COMMAND_DEF("vtx", "vtx channels on switch", NULL, cliVtx),
 #endif
 };
+
+#ifdef USE_GYRO_IMUF9001
+static void cliReportImufErrors(char *cmdline)
+{
+    UNUSED(cmdline);
+    cliPrintf("Current Comm Errors: %lu", crcErrorCount);
+    cliPrintLinefeed();
+}
+
+static void cliImufUpdate(char *cmdline)
+{
+    UNUSED(cmdline);
+
+    if( (*((__IO uint32_t *)UPT_ADDRESS)) != 0xFFFFFFFF )
+    {
+        cliPrint("I muff, you muff, we all muff for IMU-F!");
+        cliPrintLinefeed();
+        (*((__IO uint32_t *)0x2001FFEC)) = 0xF431FA77;
+        delay(1000);
+        cliReboot();
+    }
+    else
+    {
+        cliPrint("Improper hex detected, please use the full hex from https://heliorc.com/wiring/");
+        cliPrintLinefeed();
+    }
+}
+#endif
+
+#ifdef MSD_ADDRESS
+static void cliMsd(char *cmdline)
+{
+    UNUSED(cmdline);
+
+    if( (*((__IO uint32_t *)MSD_ADDRESS)) != 0xFFFFFFFF )
+    {
+        cliPrint("Loading as USB drive!");
+        cliPrintLinefeed();
+        (*((__IO uint32_t *)0x2001FFF0)) = 0xF431FA11;
+        delay(1000);
+        cliReboot();
+    }
+    else
+    {
+        cliPrint("Improper hex detected, please use the full hex from https://heliorc.com/wiring/");
+        cliPrintLinefeed();
+    }
+}
+#endif
 
 static void cliHelp(char *cmdline)
 {

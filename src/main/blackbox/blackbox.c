@@ -71,6 +71,9 @@
 #include "sensors/gyro.h"
 #include "sensors/rangefinder.h"
 
+#ifdef USE_GYRO_IMUF9001
+#include "drivers/accgyro/accgyro_imuf9001.h"
+#endif
 enum {
     BLACKBOX_MODE_NORMAL = 0,
     BLACKBOX_MODE_MOTOR_TEST,
@@ -1318,6 +1321,14 @@ static bool blackboxWriteSysinfo(void)
         BLACKBOX_PRINT_HEADER_LINE("debug_mode", "%d",                      systemConfig()->debug_mode);
         BLACKBOX_PRINT_HEADER_LINE("features", "%d",                        featureConfig()->enabledFeatures);
 
+        #ifdef USE_GYRO_IMUF9001
+        BLACKBOX_PRINT_HEADER_LINE("IMUF revision", " %d",                  imufCurrentVersion);
+        BLACKBOX_PRINT_HEADER_LINE("IMUF mode", " %d",                      gyroConfig()->imuf_mode);
+        BLACKBOX_PRINT_HEADER_LINE("IMUF roll q", " %d",                    gyroConfig()->imuf_roll_q);
+        BLACKBOX_PRINT_HEADER_LINE("IMUF pitch q", " %d",                   gyroConfig()->imuf_pitch_q);
+        BLACKBOX_PRINT_HEADER_LINE("IMUF yaw q", " %d",                     gyroConfig()->imuf_yaw_q);
+        BLACKBOX_PRINT_HEADER_LINE("IMUF w", " %d",                         gyroConfig()->imuf_w);
+        #endif
         default:
             return true;
     }

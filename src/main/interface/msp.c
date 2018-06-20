@@ -277,6 +277,24 @@ static void serializeSDCardSummaryReply(sbuf_t *dst)
 #endif
 }
 
+// static void serializeDataflashSummaryReply(sbuf_t *dst)
+// {
+// #ifdef USE_FLASHFS
+//     const flashGeometry_t *geometry = flashfsGetGeometry();
+//     uint8_t flags = (flashfsIsReady() ? 1 : 0) | 2 /* FlashFS is supported */;
+
+//     sbufWriteU8(dst, flags);
+//     sbufWriteU32(dst, geometry->sectors);
+//     sbufWriteU32(dst, geometry->totalSize);
+//     sbufWriteU32(dst, flashfsGetOffset()); // Effectively the current number of bytes stored on the volume
+// #else
+//     sbufWriteU8(dst, 0); // FlashFS is neither ready nor supported
+//     sbufWriteU32(dst, 0);
+//     sbufWriteU32(dst, 0);
+//     sbufWriteU32(dst, 0);
+// #endif
+// }
+
 static void serializeDataflashSummaryReply(sbuf_t *dst)
 {
 #ifdef USE_FLASHFS
@@ -1184,6 +1202,19 @@ static bool mspProcessOutCommand(uint8_t cmdMSP, sbuf_t *dst)
         sbufWriteU8(dst, currentPidProfile->dterm_filter_type);
         break;
 
+#ifdef USE_GYRO_IMUF9001
+    case MSP_IMUF_CONFIG:
+        sbufWriteU16(dst, gyroConfig()->imuf_mode);
+        sbufWriteU16(dst, gyroConfig()->imuf_roll_q);
+        sbufWriteU16(dst, gyroConfig()->imuf_pitch_q);
+        sbufWriteU16(dst, gyroConfig()->imuf_yaw_q);
+        sbufWriteU16(dst, gyroConfig()->imuf_w);
+        sbufWriteU16(dst, gyroConfig()->imuf_roll_lpf_cutoff_hz);
+        sbufWriteU16(dst, gyroConfig()->imuf_pitch_lpf_cutoff_hz);
+        sbufWriteU16(dst, gyroConfig()->imuf_yaw_lpf_cutoff_hz);
+        break;
+#endif
+
     case MSP_PID_ADVANCED:
         sbufWriteU16(dst, 0);
         sbufWriteU16(dst, 0);
@@ -1662,10 +1693,25 @@ static mspResult_e mspProcessInCommand(uint8_t cmdMSP, sbuf_t *src)
         }
         // reinitialize the gyro filters with the new values
         validateAndFixGyroConfig();
+#ifndef USE_GYRO_IMUF9001  
         gyroInitFilters();
+#endif //!USE_GYRO_IMUF9001
         // reinitialize the PID filters with the new values
         pidInitFilters(currentPidProfile);
         break;
+
+#ifdef USE_GYRO_IMUF9001
+    case MSP_SET_IMUF_CONFIG :
+        gyroConfigMutable()->imuf_mode = sbufReadU16(src);
+        gyroConfigMutable()->imuf_roll_q = sbufReadU16(src);
+        gyroConfigMutable()->imuf_pitch_q = sbufReadU16(src);
+        gyroConfigMutable()->imuf_yaw_q = sbufReadU16(src);
+        gyroConfigMutable()->imuf_w = sbufReadU16(src);
+        gyroConfigMutable()->imuf_roll_lpf_cutoff_hz = sbufReadU16(src);
+        gyroConfigMutable()->imuf_pitch_lpf_cutoff_hz = sbufReadU16(src);
+        gyroConfigMutable()->imuf_yaw_lpf_cutoff_hz = sbufReadU16(src);
+        break;
+#endif
 
     case MSP_SET_PID_ADVANCED:
         sbufReadU16(src);

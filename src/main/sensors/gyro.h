@@ -23,24 +23,25 @@
 #include "drivers/bus.h"
 #include "drivers/sensor.h"
 
-typedef enum {
-    GYRO_NONE = 0,
-    GYRO_DEFAULT,
-    GYRO_MPU6050,
-    GYRO_L3G4200D,
-    GYRO_MPU3050,
-    GYRO_L3GD20,
-    GYRO_MPU6000,
-    GYRO_MPU6500,
-    GYRO_MPU9250,
-    GYRO_ICM20601,
-    GYRO_ICM20602,
-    GYRO_ICM20608G,
-    GYRO_ICM20649,
-    GYRO_ICM20689,
-    GYRO_BMI160,
-    GYRO_FAKE
-} gyroSensor_e;
+ typedef enum {
+     GYRO_NONE = 0,
+     GYRO_DEFAULT,
+     GYRO_MPU6050,
+     GYRO_L3G4200D,
+     GYRO_MPU3050,
+     GYRO_L3GD20,
+     GYRO_MPU6000,
+     GYRO_MPU6500,
+     GYRO_MPU9250,
+     GYRO_ICM20601,
+     GYRO_ICM20602,
+     GYRO_ICM20608G,
+     GYRO_ICM20649,
+     GYRO_ICM20689,
+     GYRO_BMI160,
+     GYRO_IMUF9001,
+     GYRO_FAKE
+ } gyroSensor_e;
 
 typedef struct gyro_s {
     uint32_t targetLooptime;
@@ -54,6 +55,17 @@ typedef enum {
     GYRO_OVERFLOW_CHECK_YAW,
     GYRO_OVERFLOW_CHECK_ALL_AXES
 } gyroOverflowCheck_e;
+
+#if defined(USE_GYRO_IMUF9001)
+typedef enum {
+    IMUF_RATE_32K = 0,
+    IMUF_RATE_16K = 1,
+    IMUF_RATE_8K = 2,
+    IMUF_RATE_4K = 3,
+    IMUF_RATE_2K = 4,
+    IMUF_RATE_1K = 5
+} imufRate_e;
+#endif
 
 typedef struct gyroConfig_s {
     sensor_align_e gyro_align;              // gyro alignment
@@ -71,10 +83,24 @@ typedef struct gyroConfig_s {
     uint16_t gyro_soft_notch_hz_2;
     uint16_t gyro_soft_notch_cutoff_2;
     gyroOverflowCheck_e checkOverflow;
+
+    int16_t  gyro_offset_yaw;
+#if defined(USE_GYRO_IMUF9001)
+    uint16_t imuf_mode;
+    uint16_t imuf_rate;
+    uint16_t imuf_pitch_q;
+    uint16_t imuf_roll_q;
+    uint16_t imuf_yaw_q;
+    uint16_t imuf_w;
+    uint16_t imuf_pitch_lpf_cutoff_hz;
+    uint16_t imuf_roll_lpf_cutoff_hz;
+    uint16_t imuf_yaw_lpf_cutoff_hz;
+#else
     uint16_t gyro_filter_q;
     uint16_t gyro_filter_r;
     uint16_t gyro_filter_p;
-    int16_t  gyro_offset_yaw;
+#endif
+    uint8_t  gyro_stage2_filter_type;
 } gyroConfig_t;
 
 PG_DECLARE(gyroConfig_t, gyroConfig);
@@ -82,6 +108,10 @@ PG_DECLARE(gyroConfig_t, gyroConfig);
 bool gyroInit(void);
 
 void gyroInitFilters(void);
+#ifdef USE_DMA_SPI_DEVICE
+void gyroDmaSpiFinishRead(void);
+void gyroDmaSpiStartRead(void);
+#endif
 void gyroUpdate(timeUs_t currentTimeUs);
 bool gyroGetAccumulationAverage(float *accumulation);
 const busDevice_t *gyroSensorBus(void);

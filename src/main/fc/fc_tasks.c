@@ -137,7 +137,6 @@ static void taskUpdateRxMain(timeUs_t currentTimeUs)
         return;
     }
 
-    isRXDataNew = true;
 
 #if !defined(USE_ALT_HOLD)
     // updateRcCommands sets rcCommand, which is needed by updateAltHoldState and updateSonarAltHoldState
