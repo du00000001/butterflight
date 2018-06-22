@@ -94,7 +94,7 @@
 #define SPI1_MISO_PIN           PA6
 #define SPI1_MOSI_PIN           PA7
 
-#define USE_DMA_SPI_DEVICE
+#define USE_DMA_SPI_DEVICE         SPI1
 
 #define DMA_SPI_NSS_PIN_SRC        GPIO_PinSource1
 #define DMA_SPI_NSS_PIN            GPIO_Pin_1
