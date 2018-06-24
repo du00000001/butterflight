@@ -304,7 +304,7 @@ static void serializeDataflashSummaryReply(sbuf_t *dst)
         sbufWriteU32(dst, 0);
         sbufWriteU32(dst, 0);
         sbufWriteU32(dst, 0);
-    }    
+    }
 }
 
 #ifdef USE_FLASHFS
@@ -1691,14 +1691,14 @@ static mspResult_e mspProcessInCommand(uint8_t cmdMSP, sbuf_t *src)
         }
         // reinitialize the gyro filters with the new values
         validateAndFixGyroConfig();
-#ifndef USE_GYRO_IMUF9001  
+#ifndef USE_GYRO_IMUF9001
         gyroInitFilters();
 #endif //!USE_GYRO_IMUF9001
         // reinitialize the PID filters with the new values
         pidInitFilters(currentPidProfile);
         break;
     case MSP_SET_ADVANCED_FILTER_CONFIG :
-        gyroConfigMutable()->gyro_lowpass_hz = sbufReadU16(src);
+        gyroConfigMutable()->gyro_lowpass2_hz = sbufReadU16(src);
         #ifndef USE_GYRO_IMUF9001
         gyroConfigMutable()->gyro_filter_q = sbufReadU16(src);
         gyroConfigMutable()->gyro_filter_r = sbufReadU16(src);
